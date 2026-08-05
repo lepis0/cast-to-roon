@@ -21,8 +21,25 @@ case "$SOURCE_MODE" in
   *) die "SOURCE_MODE must be one of: alsa, tone, file (got '$SOURCE_MODE')" ;;
 esac
 
-if [ "$SOURCE_MODE" = "alsa" ] && [ ! -d /dev/snd ]; then
-  die "SOURCE_MODE=alsa but /dev/snd is missing - start the container with --device /dev/snd"
+if [ "$SOURCE_MODE" = "alsa" ]; then
+  if [ ! -d /dev/snd ]; then
+    die "SOURCE_MODE=alsa but /dev/snd is missing - start the container with --device /dev/snd"
+  fi
+  # /dev/snd can exist with nothing but seq/timer in it when the host has no
+  # sound card driver loaded. Catch that here rather than leaving ffmpeg to
+  # report the far less obvious "Cannot get card index for 0".
+  capture_found=0
+  for node in /dev/snd/pcmC*c; do
+    if [ -e "$node" ]; then capture_found=1; fi
+  done
+  if [ "$capture_found" = "0" ]; then
+    die "no capture devices (/dev/snd/pcmC*c) are visible in the container.
+       On the host, check 'cat /proc/asound/cards'. If it is empty the sound
+       card driver is not loaded - 'modprobe snd-hda-intel' on Unraid. If the
+       host does list a card, recreate this container: --device /dev/snd only
+       maps the device nodes that existed when the container was created.
+       See docs/troubleshooting.md"
+  fi
 fi
 
 if [ "$SOURCE_MODE" = "file" ] && [ ! -f "$TEST_FILE" ]; then

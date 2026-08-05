@@ -37,6 +37,9 @@ the detail level with `FFMPEG_LOG_LEVEL=info` and read the actual ffmpeg error.
 
 - `cannot open audio device hw:0,0: No such file or directory` — wrong
   `ALSA_DEVICE`. Run `./scripts/find-line-in.sh` and pick from the list.
+- `Cannot get card index for 0` together with the above — ALSA sees no card at
+  that index at all, which is a host problem, not a wrong device number. See
+  [the next section](#no-sound-card-in-the-container).
 - `Device or resource busy` — something else on the host already has the card
   open. Only one process can capture at a time.
 - `Permission denied` — you set a non-root `PUID` but `AUDIO_GID` does not match
@@ -44,6 +47,55 @@ the detail level with `FFMPEG_LOG_LEVEL=info` and read the actual ffmpeg error.
   run as root (`PUID=0`, the default).
 - HTTP `401` from Icecast — mismatched source password, which usually means a
   stale `ICECAST_CONFIG_OVERRIDE` file in `/config`.
+
+## No sound card in the container
+
+Symptom: `Cannot get card index for 0` and `cannot open audio device hw:0,0
+(No such file or directory)`, or the container refusing to start with "no
+capture devices are visible in the container".
+
+Work outwards from the host:
+
+```bash
+# 1. On the host - does the kernel see a card at all?
+cat /proc/asound/cards
+ls -l /dev/snd/
+```
+
+**`/proc/asound/cards` is empty, or `/dev/snd` only holds `seq` and `timer`.**
+No sound card driver is loaded. Unraid does not load audio drivers by default:
+
+```bash
+modprobe snd-hda-intel
+cat /proc/asound/cards          # should now list the codec
+```
+
+Make it survive reboots by adding the same line to `/boot/config/go` (above the
+`emhttp` line). If `modprobe` fails, the card is either disabled in the BIOS or
+bound to `vfio-pci` for VM passthrough — check Settings → VM Manager → PCI
+Devices.
+
+**The host lists a card but the container still cannot see it.** `--device
+/dev/snd` maps the device nodes that existed *at container creation time*, so a
+card that appeared after the container was created is invisible to it. Recreate
+the container (Unraid: Edit → Apply is enough, it recreates):
+
+```bash
+docker exec cast-to-roon ls -l /dev/snd/    # what the container actually has
+```
+
+You want `pcmC0D0c`-style nodes in there; the trailing `c` is capture. Nodes
+ending in `p` are playback only and cannot be recorded from.
+
+**Both look right but `hw:0,0` still fails.** The card index is not 0, or device
+0 of that card has no capture stream. List them properly:
+
+```bash
+docker exec cast-to-roon arecord -l
+```
+
+Card names are more stable than indexes across reboots, so prefer
+`ALSA_DEVICE=hw:CARD=Generic,DEV=0` over `hw:0,0` once you know which one works.
 
 ## The stream exists but is silent
 

@@ -84,6 +84,20 @@ fi
 
 SOURCE_URL="icecast://source:${ICECAST_SOURCE_PASSWORD}@127.0.0.1:${ICECAST_PORT}"
 
+# Newer ffmpeg deprecated the ALSA input device's "channels" option in favour of
+# "ch_layout" and warns on every start. Probe which one this build wants, so the
+# same script works whichever ffmpeg Alpine ships.
+ALSA_CHANNEL_OPT="-channels"
+ALSA_CHANNEL_VAL="$CHANNELS"
+if ffmpeg -hide_banner -h demuxer=alsa 2>/dev/null | grep -q -- '-ch_layout'; then
+  ALSA_CHANNEL_OPT="-ch_layout"
+  case "$CHANNELS" in
+    1) ALSA_CHANNEL_VAL="mono" ;;
+    2) ALSA_CHANNEL_VAL="stereo" ;;
+    *) ALSA_CHANNEL_VAL="${CHANNELS}c" ;;
+  esac
+fi
+
 # MP3 tops out at 48 kHz; resample only when the capture rate exceeds that, so a
 # normal 44.1/48 kHz capture is passed through untouched.
 MP3_RATE="$SAMPLE_RATE"
@@ -97,8 +111,9 @@ run_encoder() {
 
   case "$SOURCE_MODE" in
     alsa)
-      set -- "$@" -f alsa -channels "$CHANNELS" -sample_rate "$SAMPLE_RATE" \
-                  -sample_fmt "$SAMPLE_FORMAT" -i "$ALSA_DEVICE"
+      set -- "$@" -f alsa "$ALSA_CHANNEL_OPT" "$ALSA_CHANNEL_VAL" \
+                  -sample_rate "$SAMPLE_RATE" -sample_fmt "$SAMPLE_FORMAT" \
+                  -i "$ALSA_DEVICE"
       ;;
     tone)
       # -re throttles lavfi to real time; without it ffmpeg would generate the
