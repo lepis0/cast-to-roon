@@ -149,10 +149,21 @@ GitHub release. Cut one with:
 ./scripts/release.sh patch
 ```
 
+## A word on where to run it
+
+Capture needs a host whose kernel has sound card drivers. That rules out
+**Unraid**, whose kernel ships the ALSA core and nothing else — neither the
+onboard Line In nor a USB sound card can be used there. The container still runs
+on Unraid in `tone`/`file` mode, which is enough to set up the Roon side, but
+real capture wants a Raspberry Pi (or any other Linux box) next to the Cast
+receiver. See [`docs/raspberry-pi.md`](./docs/raspberry-pi.md).
+
 ## Documentation
 
+- [`docs/raspberry-pi.md`](./docs/raspberry-pi.md) — the capture host setup:
+  hardware, install, levels
 - [`docs/unraid.md`](./docs/unraid.md) — sound card passthrough, finding the
-  capture device, setting input levels
+  capture device, setting input levels, and the kernel caveat above
 - [`docs/roon.md`](./docs/roon.md) — adding the station to Roon and grouping zones
 - [`docs/troubleshooting.md`](./docs/troubleshooting.md) — no signal, dropouts,
   Roon refusing the stream

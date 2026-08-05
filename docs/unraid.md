@@ -3,26 +3,73 @@
 The container needs exactly one thing from the host: read access to the ALSA
 capture device that the Cast receiver's line-out is plugged into.
 
+**Read the next section before buying anything.** Unraid's own kernel very
+likely cannot give you that device — the container still runs fine on Unraid in
+`tone`/`file` mode, but real capture needs a host whose kernel has sound
+drivers. See [raspberry-pi.md](./raspberry-pi.md) for the setup that works.
+
+## Unraid kernel has no sound drivers
+
+Unraid ships a kernel with the ALSA *core* only and no card drivers at all.
+Check before planning around it:
+
+```bash
+ls /lib/modules/$(uname -r)/kernel/sound/
+find /lib/modules/$(uname -r) -name 'snd*' -printf '%f\n' | sort
+```
+
+On Unraid 7.x (kernel 6.18.38-Unraid, checked 2026-08-05) that returns only
+`core/`, `soundcore.ko.xz`, and the core modules `snd`, `snd-pcm`, `snd-timer`,
+`snd-hrtimer`, `snd-pcm-oss`. What is missing matters more:
+
+- no `snd-hda-intel` → the motherboard's Line In cannot be used, however good
+  the codec is
+- no `snd-usb-audio` → **a USB sound card does not help either**, which is the
+  usual workaround and the reason this is worth checking explicitly
+
+`modprobe snd-hda-intel` answers with `Module not found`, and `/dev/snd`
+contains nothing but `seq` and `timer` — which surfaces inside the container as
+ffmpeg's `Cannot get card index for 0`.
+
+Three ways forward, best first:
+
+1. **Capture on a separate Linux box** next to the Cast receiver — a Raspberry
+   Pi with a USB sound card. Same image, arm64 included. See
+   [raspberry-pi.md](./raspberry-pi.md).
+2. **A Linux VM on Unraid** with the motherboard's HD Audio device passed
+   through via vfio-pci, running this container inside it. No new hardware, but
+   the audio device has to sit in an IOMMU group of its own — check Tools →
+   System Devices before committing to this.
+3. **A custom kernel** (Unraid Kernel Helper) built with sound support. It
+   works, but you rebuild it after every Unraid update. Not recommended for
+   something that should just play music.
+
+The rest of this page applies to whichever Linux host ends up doing the capture;
+only the Unraid-specific bits (appdata paths, the template) are Unraid-only.
+
 ## 1. Check the host sees a sound card
 
-From an Unraid terminal:
+On the capture host:
 
 ```bash
 cat /proc/asound/cards
 ls -l /dev/snd/
 ```
 
-You should see the onboard codec (on an ASUS TUF GAMING B550-PLUS that is the
-Realtek ALC S1200A, usually reported as `HD-Audio Generic`) and a `/dev/snd`
-tree containing `controlC0`, `pcmC0D0c` and friends. The `c` suffix means
-capture — no `*c` device means the card exposes no inputs.
+You want a card listed, and a `/dev/snd` tree containing `controlC0`,
+`pcmC0D0c` and friends. The `c` suffix means capture — no `*c` device means the
+card exposes no inputs.
 
 If `/proc/asound/cards` is empty:
 
+- the kernel may have no driver for the card at all — check the section above
+- the driver may just not be loaded: `modprobe snd-hda-intel` (onboard) or
+  `modprobe snd-usb-audio` (USB), persisted in `/etc/modules` or Unraid's
+  `/boot/config/go`
 - onboard audio may be disabled in the BIOS — enable it
 - the audio device may be bound to `vfio-pci` for a VM passthrough — check
-  Settings → VM Manager → PCI Devices and unbind it
-- Unraid loads `snd-hda-intel` automatically; `lsmod | grep snd` should list it
+  Settings → VM Manager → PCI Devices and unbind it (or, if you are doing the
+  VM route deliberately, that is exactly what you want)
 
 ## 2. Find the right capture device
 

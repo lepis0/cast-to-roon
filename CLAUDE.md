@@ -13,6 +13,14 @@ Icecast-lähde (FLAC) → Roon poimii sen verkkoradiona.
 
 ## Suositeltu arkkitehtuuri
 
+> **Korjaus 5.8.2026:** alkuperäinen suunnitelma nojasi Unraid-koneen
+> onboard Line In -tuloon. **Se ei toimi**: Unraidin kerneli sisältää vain
+> ALSA:n ytimen eikä yhtäkään korttiajuria — ei `snd-hda-intel`ia
+> (onboard) eikä `snd-usb-audio`ta (USB-äänikortit). Todennettu kernelillä
+> 6.18.38-Unraid, ks. [docs/unraid.md](./docs/unraid.md#unraid-kernel-has-no-sound-drivers).
+> Kaappaus on siis tehtävä muulla laitteella; arkkitehtuuri alla on
+> päivitetty vastaavasti.
+
 ```
 [Puhelin/appi: Yle Areena, Spotify, jne.]
               │  (Google Cast / AirPlay 2 / Spotify+Tidal Connect — verkon yli)
@@ -20,26 +28,30 @@ Icecast-lähde (FLAC) → Roon poimii sen verkkoradiona.
       Arylic LP10 (~90–100 €)
               │  (fyysinen kaapeli: 3.5mm/RCA tai optinen)
               ▼
-   Unraid-koneen emolevyn Line In
-   (ASUS TUF GAMING B550-PLUS, Realtek ALC S1200A,
-    vahvistetusti oikea Line In -portti, ei Mic-in)
+   Kaappauslaite: RPi + USB-äänikortti  (tai Linux-VM Unraidilla,
+   jolle emolevyn äänipiiri passthroughataan vfio-pci:llä)
               │  (--device /dev/snd passthrough)
               ▼
-   Docker-kontti: darkice/liquidsoap → Icecast2 (FLAC-enkoodaus)
+   Docker-kontti: ffmpeg → Icecast2 (FLAC-enkoodaus)
               │
               ▼
    Roon (lisätty radio-URL:na) → Roonin multiroom → huoneet
 ```
 
-**Ei tarvita erillistä Raspberry Pi:tä eikä lisäkortteja** — pelkkä LP10 ja
-kaapeli riittävät, jos LP10 saadaan sijoitettua kaapelin kantomatkalle
-Unraid-koneesta. Hyödyntää olemassa olevaa Docker/Watchtower-infraa.
+**Kaappauslaitteelle kaksi vaihtoehtoa:**
 
-**Jos etäisyys Unraid-koneeseen on kohtuuton** (esim. eri huone/kerros eikä
-kaapelia saa vedettyä järkevästi), varavaihtoehtona pieni erillinen laite
-(RPi Zero 2 W, ~20 €) LP10:n vierellä, joka striimaa Icecastiin verkon yli
-— tällöin RPi:llä pyörii sama darkice/liquidsoap → Icecast, mutta LP10 saa
-olla missä tahansa RPi:n vieressä.
+1. **RPi + USB-äänikortti LP10:n vierellä** (~40–50 €) — suositus.
+   Sama Docker-image (arm64 on buildattu), striimaa Icecastiin verkon yli.
+   Ei riipu Unraidin kernelistä, ja LP10 saa olla missä tahansa: vain
+   RPi:n ja LP10:n välillä tarvitaan kaapeli, ei Unraid-koneeseen asti.
+2. **Linux-VM Unraidilla**, jolle emolevyn HD-audio-laite annetaan
+   vfio-pci-passthroughina (0 €, mutta edellyttää että äänipiiri on omassa
+   IOMMU-ryhmässään, ja tuo ylläpidettävän VM:n). Kokeilemisen arvoinen jos
+   haluaa pitää kaiken yhdellä koneella — tarkista IOMMU-ryhmät ensin
+   Unraidin Tools → System Devices -sivulta.
+
+Unraid pyörittää yhä Roonia ja muuta infraa; vain äänen kaappaus siirtyy
+pois siltä.
 
 ## Kohdesovellukset ja niiden ratkaisu
 
@@ -83,7 +95,7 @@ vinyylistriimerissä, mutta lähde on jo digitaalinen.
 - **Tärkeä erottelu:** castaus (puhelin → LP10) toimii verkon yli
   sijainnista riippumatta, mutta LP10:n audiolähtö capture-laitteeseen on
   aina fyysinen kaapeli — LP10:n täytyy siis olla kaapelin kantomatkan
-  päässä siitä missä ääni napataan talteen (Unraid-kone tai RPi)
+  päässä kaappauslaitteesta (RPi tai VM-host)
 
 ## Rauta
 
@@ -91,17 +103,29 @@ vinyylistriimerissä, mutta lähde on jo digitaalinen.
 - **Arylic LP10** (~90–100 €) — tukee samassa paketissa Google Cast/
   Chromecast built-in, AirPlay 2, Spotify Connect, Tidal Connect,
   Bluetooth, DLNA/UPnP. Ulostuloina 3.5mm/RCA-linja ja optinen S/PDIF
-- Kaapeli LP10:n lähdöstä Unraid-koneen Line In -jackiin (muutama euro)
-- **Ei muuta** — ASUS TUF GAMING B550-PLUS -emolevyn Realtek ALC S1200A
-  -äänipiirissä on vahvistetusti oikea Line In -portti (vaaleansininen,
-  ei Mic-in), täysin vakiotuettu `snd-hda-intel`-ajurilla Linuxissa
+- **Raspberry Pi** (Zero 2 W ~20 €, tai 3A+/4 jos löytyy laatikosta) +
+  **USB-äänikortti** (Behringer UCA222 ~30 €, tai mikä tahansa USB Audio
+  Class -laite jossa on line-tulo) LP10:n vierellä
+- Kaapeli LP10:n lähdöstä USB-äänikortin tuloon (muutama euro)
+
+**Miksi ei Unraid-koneen omaa Line Iniä (alkuperäinen suunnitelma):**
+emolevyssä *on* kunnollinen Line In (ASUS TUF GAMING B550-PLUS, Realtek
+ALC S1200A, vaaleansininen portti), mutta Unraidin kernelissä ei ole
+`snd-hda-intel`-ajuria — eikä `snd-usb-audio`ta, joten USB-äänikorttikaan
+ei pelasta. `/lib/modules/$(uname -r)/kernel/sound/` sisältää vain ALSA:n
+ytimen. Tämä koskee koko Unraid-hostia riippumatta siitä mihin porttiin
+kaapeli kytketään.
 
 **Varavaihtoehdot:**
-- Jos onboard-Line In ei syystä toimisi: USB-äänikortti (esim. Behringer
-  UCA222) Unraid-koneen USB-porttiin — ei PCIe-korttia, koska geneerinen
-  USB Audio Class -ajuri on ajuririskitön, kun taas PCIe-äänikortit
-  vaativat oman kernel-tuen (vrt. aiempi ajuriharmi Arc B580:n kanssa)
-- Jos LP10:n ja Unraid-koneen välinen etäisyys on kohtuuton: erillinen
+- **Linux-VM Unraidilla** + emolevyn äänipiirin vfio-pci-passthrough: ei
+  uutta rautaa lainkaan, VM:n oma kerneli tuo ajurit. Edellyttää että
+  HD-audio-laite on omassa IOMMU-ryhmässään
+- Mikä tahansa muu jo olemassa oleva Linux-kone LP10:n lähellä käy
+  kaappauslaitteeksi RPi:n sijaan — image on amd64 + arm64
+- **Custom-kerneli** (Unraid Kernel Helper) äänituella: toimii, mutta
+  vaatii kernelin uudelleenkäännön jokaisen Unraid-päivityksen yhteydessä
+  — ei suositella
+- Jos LP10:n ja kaappauslaitteen välinen etäisyys on kohtuuton: erillinen
   RPi Zero 2 W (~20 €) + USB-äänikortti LP10:n vierellä, striimaa
   Icecastiin verkon yli
 - Pidempi kaapelimatka: **optinen Toslink** (n. 10–15 €, 5–10 m) ei
@@ -123,17 +147,19 @@ vinyylistriimerissä, mutta lähde on jo digitaalinen.
   myyjältä. Chromecast Audio/LP10 on luotettavampi koska ei
   EDID/HDCP-kikkailua
 
-**Arvioitu kokonaishinta:** n. **90–110 €** suositellulla kokoonpanolla
-(LP10 + kaapeli, ei muuta rautaa), tai n. **50–80 €** budjettireitillä
-(käytetty Chromecast Audio + RPi).
+**Arvioitu kokonaishinta:** n. **140–160 €** suositellulla kokoonpanolla
+(LP10 + RPi + USB-äänikortti + kaapelit), tai n. **90–110 €** jos
+VM-passthrough toimii eikä RPi:tä tarvita. Alkuperäinen 90–110 €:n arvio
+oletti Unraidin onboard-tulon toimivan.
 
 ## Ohjelmistokomponentit
 
 1. **Icecast2** — striimauspalvelin, FLAC-tuki
-2. **darkice** tai **liquidsoap** — kaappaa ALSA-lähteen (Unraid-kone tai
-   RPi) ja lähettää Icecastiin FLAC-muodossa
-3. Docker-passthrough Unraidilla: `--device /dev/snd` konttiin — yleinen
-   ja hyvin dokumentoitu kuvio (vrt. Snapcast-tyyppiset audio-kontit)
+2. **ffmpeg** — kaappaa ALSA-lähteen ja lähettää Icecastiin FLAC-muodossa
+   (valittu darkicen/liquidsoapin sijaan, ks. "Toteutuksen tila")
+3. Docker-passthrough: `--device /dev/snd` konttiin — yleinen ja hyvin
+   dokumentoitu kuvio (vrt. Snapcast-tyyppiset audio-kontit). Vaatii että
+   *hostin* kernelissä on äänikorttiajurit, mikä sulkee Unraidin pois
 4. **RPi-varianttia varten:** `snd-aloop`/`dmix` mikserinä LP10-tulon ja
    Bluetooth-backupin yhdistämiseen, sekä **BlueZ + bluez-alsa (bluealsa)**
    Bluetooth A2DP-sinkiksi (kaappaa kaiken puhelimen äänen, mutta SBC-
@@ -160,8 +186,10 @@ vinyylistriimerissä, mutta lähde on jo digitaalinen.
 
 1. ✅ Icecast2 + FLAC-striimaus pystyyn Docker-kontissa Unraidilla, testaa
    yhdellä staattisella audiotiedostolla että Roon löytää ja soittaa aseman
-2. Hanki Arylic LP10, kytke sen analogilähtö Unraid-koneen Line In
-   -jackiin, varmista signaali kaappautuu (`arecord`-testi kontista)
+   (tehty `SOURCE_MODE=tone`-testiäänellä, Roon soittaa)
+2. Hanki Arylic LP10 **ja kaappauslaite** (RPi + USB-äänikortti, tai
+   pystytä VM), kytke LP10:n analogilähtö sen tuloon, varmista että
+   signaali kaappautuu (`arecord`-testi kontista)
 3. ✅ Yhdistä kaappaus Icecast-lähteeseen (`SOURCE_MODE=alsa`) — koodi valmis,
    jäljellä vain oikean `ALSA_DEVICE`:n varmistaminen raudan saavuttua
 4. Testaa Yle Areenalla Androidista päästä päähän (Cast-painike → LP10)
@@ -180,5 +208,13 @@ MP3-varamountin, eikä erillistä konfiguraatiokieltä tarvita.
 
 Ennen raudan saapumista koko Roon-pää voi testata ilman LP10:tä:
 `SOURCE_MODE=tone` (440 Hz testiääni) tai `SOURCE_MODE=file` (looppaa
-`/config/test.flac`). Yksityiskohdat: [README.md](./README.md),
+`/config/test.flac`). Tämä on tehty ja Roon soittaa aseman.
+
+**Avoin asia:** kaappauslaite. Unraid-host ei kelpaa (ei äänikorttiajureita
+kernelissä), joten tarvitaan RPi + USB-äänikortti tai VM-passthrough.
+Kontti itsessään ei muutu kummassakaan tapauksessa — vain `ALSA_DEVICE`
+ja se, millä koneella kontti pyörii.
+
+Yksityiskohdat: [README.md](./README.md),
+[docs/raspberry-pi.md](./docs/raspberry-pi.md),
 [docs/unraid.md](./docs/unraid.md), [docs/roon.md](./docs/roon.md).

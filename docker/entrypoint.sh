@@ -34,10 +34,14 @@ if [ "$SOURCE_MODE" = "alsa" ]; then
   done
   if [ "$capture_found" = "0" ]; then
     die "no capture devices (/dev/snd/pcmC*c) are visible in the container.
-       On the host, check 'cat /proc/asound/cards'. If it is empty the sound
-       card driver is not loaded - 'modprobe snd-hda-intel' on Unraid. If the
-       host does list a card, recreate this container: --device /dev/snd only
-       maps the device nodes that existed when the container was created.
+       On the host, check 'cat /proc/asound/cards'.
+       - empty, and 'ls /lib/modules/\$(uname -r)/kernel/sound/' has no pci/
+         or usb/ directory: this kernel has no sound card drivers at all.
+         Unraid is like this - capture has to run on another machine.
+       - empty, but the modules exist: the driver is not loaded, try
+         'modprobe snd-hda-intel' or 'modprobe snd-usb-audio'.
+       - the host lists a card: recreate this container, --device /dev/snd
+         only maps the device nodes that existed at creation time.
        See docs/troubleshooting.md"
   fi
 fi

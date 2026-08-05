@@ -63,17 +63,30 @@ ls -l /dev/snd/
 ```
 
 **`/proc/asound/cards` is empty, or `/dev/snd` only holds `seq` and `timer`.**
-No sound card driver is loaded. Unraid does not load audio drivers by default:
+No sound card driver is active. First find out whether the driver exists at all:
 
 ```bash
-modprobe snd-hda-intel
-cat /proc/asound/cards          # should now list the codec
+ls /lib/modules/$(uname -r)/kernel/sound/
 ```
 
-Make it survive reboots by adding the same line to `/boot/config/go` (above the
-`emhttp` line). If `modprobe` fails, the card is either disabled in the BIOS or
-bound to `vfio-pci` for VM passthrough — check Settings → VM Manager → PCI
-Devices.
+*No `pci/` or `usb/` directory, only `core/`* — the kernel was built without
+sound card drivers, so there is nothing to load and a USB sound card will not
+help either. This is the situation on Unraid; run the capture on another
+machine, see [raspberry-pi.md](./raspberry-pi.md).
+
+*The modules are there* — they just are not loaded:
+
+```bash
+modprobe snd-hda-intel          # onboard
+modprobe snd-usb-audio          # USB sound card
+cat /proc/asound/cards          # should now list the card
+```
+
+Persist it in `/etc/modules` (Debian/Pi OS) or, on Unraid, `/boot/config/go`
+above the `emhttp` line. If `modprobe` reports the module as missing despite the
+file existing, run `depmod -a` first. If the card is still absent, it is either
+disabled in the BIOS or bound to `vfio-pci` for VM passthrough — check
+Settings → VM Manager → PCI Devices.
 
 **The host lists a card but the container still cannot see it.** `--device
 /dev/snd` maps the device nodes that existed *at container creation time*, so a
