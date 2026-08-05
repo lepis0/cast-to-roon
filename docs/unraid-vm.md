@@ -62,7 +62,30 @@ The host loses nothing, since it had no driver for it in the first place.
 | Memory         | 1024 MB                                          |
 | vDisk          | 10 GB                                            |
 | Network        | br0, so the VM gets its own LAN IP               |
-| Other PCI Devices | tick the HD Audio controller                  |
+| **Sound Card** | **the HD Audio controller** — see below          |
+
+The audio device is selected in the **Sound Card** dropdown, *not* under Other
+PCI Devices. Unraid filters VGA- and audio-class devices out of that list
+because they have dropdowns of their own, so Other PCI Devices looks empty even
+though the binding worked. Despite its name, the Sound Card dropdown is a
+passthrough selector, not an emulated-audio setting.
+
+If the dropdown is empty too, add the device by hand: switch the VM editor to
+**XML View** (toggle at the top right) and put a `hostdev` inside `<devices>`,
+with `bus`/`slot`/`function` matching the PCI address from `lspci`:
+
+```xml
+<hostdev mode='subsystem' type='pci' managed='yes'>
+  <source>
+    <address domain='0x0000' bus='0x0d' slot='0x00' function='0x4'/>
+  </source>
+  <address type='pci' domain='0x0000' bus='0x05' slot='0x00' function='0x0'/>
+</hostdev>
+```
+
+The guest-side `<address>` has to point at a free `pcie-root-port`. Unraid's
+template creates five of them and the default devices occupy buses `0x01`–`0x04`,
+so `0x05` is normally free.
 
 Encoding one stereo FLAC stream is a few percent of a core; this VM is idle
 almost all the time.
