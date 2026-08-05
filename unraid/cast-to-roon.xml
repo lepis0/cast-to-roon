@@ -50,7 +50,7 @@
           Description="s16 or s32"
           Type="Variable" Display="advanced" Required="false" Mask="false">s16</Config>
   <Config Name="Mixer init" Target="AMIXER_INIT" Default=""
-          Description="Semicolon-separated amixer commands run at startup, e.g. sset 'Line' 80% unmute;sset 'Capture' 60% cap"
+          Description="Semicolon-separated amixer commands run at startup, e.g. sset 'Input Source' Line;sset 'Capture' 60% cap"
           Type="Variable" Display="advanced" Required="false" Mask="false"/>
   <Config Name="Enable MP3 mount" Target="ENABLE_MP3" Default="true"
           Description="Serve an MP3 320k fallback at /cast.mp3 alongside the FLAC mount"

@@ -136,15 +136,28 @@ Cable from the Cast receiver's line-out to the **light blue Line In** on the
 server's rear panel. Not the pink Mic In: it is mono on most codecs and applies
 20 dB of boost.
 
-Realtek codecs boot with the capture switch muted. While music is casting:
+Realtek codecs boot muted *and* listening to the microphone input. While music
+is playing into the jack:
 
 ```bash
-docker exec -it cast-to-roon amixer -c 0
-./scripts/find-line-in.sh -m          # measures the actual signal level
+docker exec -it cast-to-roon amixer -c 0 sset 'Input Source',0 Line
+docker exec -it cast-to-roon amixer -c 0 sset 'Input Source',1 Line
+docker exec -it cast-to-roon amixer -c 0 sset 'Capture',0 60% cap
+docker exec -it cast-to-roon amixer -c 0 sset 'Capture',1 60% cap
+
+docker exec cast-to-roon ffmpeg -hide_banner -nostdin \
+  -i http://127.0.0.1:8000/cast.flac -t 5 -af volumedetect -f null - 2>&1 \
+  | grep max_volume
 ```
 
-Once you know the working control names, make them permanent with
-`-e AMIXER_INIT="sset 'Line' 80% unmute;sset 'Capture' 60% cap"` — the container
+The measurement goes through the stream because the container already holds the
+capture device open — `scripts/find-line-in.sh` cannot open it a second time
+while the encoder is running. See
+[unraid.md](./unraid.md#3-set-capture-levels) for what these controls do and why
+the one called `Line` is not among them.
+
+Once the levels work, make them permanent with
+`-e AMIXER_INIT="sset 'Input Source' Line;sset 'Capture' 60% cap"` — the container
 re-applies them on every start, which matters because ALSA mixer state does not
 survive a reboot.
 

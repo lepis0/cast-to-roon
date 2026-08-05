@@ -101,7 +101,7 @@ you only need to set the two passwords and `ALSA_DEVICE`.
 | `TONE_VOLUME`          | `0.1`          | Test tone level (1.0 = full scale)                           |
 | `AUDIO_FILTER`         | _(empty)_      | ffmpeg `-af` filter chain, e.g. `volume=2.0,highpass=f=20`   |
 | `RESAMPLE_ASYNC`       | `true`         | Correct ALSA clock drift with `aresample=async=1`. Set `false` only to prove it is the cause of something |
-| `AMIXER_INIT`          | _(empty)_      | `;`-separated amixer commands applied at startup, e.g. `sset 'Line' 80% unmute;sset 'Capture' 60% cap` |
+| `AMIXER_INIT`          | _(empty)_      | `;`-separated amixer commands applied at startup, e.g. `sset 'Input Source' Line;sset 'Capture' 60% cap` |
 | `AMIXER_CARD`          | `0`            | Card number `AMIXER_INIT` applies to                          |
 | `SOURCE_RESTART_DELAY` | `5`            | Seconds to wait before restarting a dead encoder             |
 | `FFMPEG_LOG_LEVEL`     | `warning`      | ffmpeg verbosity                                             |

@@ -75,7 +75,7 @@ Ethernet port — either accept WiFi or pick a Pi with a jack.
    ```
 
    USB cards usually expose a single `Mic`/`Line` capture control. Once you know
-   the right values, bake them in with `-e AMIXER_INIT="sset 'Line' 80% cap"` so
+   the right values, bake them in with `-e AMIXER_INIT="sset 'Capture' 80% cap"` so
    they survive reboots.
 
 ## Point Roon at the Pi

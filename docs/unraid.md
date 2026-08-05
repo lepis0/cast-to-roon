@@ -97,22 +97,57 @@ Mic In applies 20 dB of boost and is mono on many codecs.
 
 ## 3. Set capture levels
 
-Onboard Realtek codecs often boot with the capture switch muted. Check with:
+Realtek codecs boot with the capture path both muted and pointed at the wrong
+input. List the controls:
 
 ```bash
 docker exec -it cast-to-roon amixer -c 0
 ```
 
-Look for a `Line` or `Capture` control with `[off]`. Fix it, and make it stick
-across reboots with the `AMIXER_INIT` variable rather than by hand — Unraid does
-not persist ALSA mixer state:
+Two controls decide whether anything is recorded at all:
+
+- **`Input Source`** — which physical input the ADC listens to. It defaults to
+  `Rear Mic`, so a cable in the Line In jack produces silence until this is set
+  to `Line`.
+- **`Capture`** — the ADC's level and on/off switch, normally `[off]` at 0%.
+
+A control named **`Line`** also exists, and it is *not* the one you want: on
+Realtek HDA it is a playback control (`pvolume pswitch`) that routes line-in
+straight to the speaker output. Leaving it off changes nothing about recording.
+
+Codecs with two ADCs (an ALC S1200A has two, matching `arecord -l` devices 0 and
+2) expose `Input Source,0`/`Input Source,1` and `Capture,0`/`Capture,1`. Setting
+both pairs is simplest:
+
+```bash
+docker exec -it cast-to-roon amixer -c 0 sset 'Input Source',0 Line
+docker exec -it cast-to-roon amixer -c 0 sset 'Capture',0 60% cap
+```
+
+`Line Boost` (0–3) is a microphone preamp. Leave it at 0 for a line-level
+source; raising it lifts the noise floor along with the signal.
+
+Once the levels work, make them stick with `AMIXER_INIT` rather than by hand —
+ALSA mixer state does not survive a reboot:
 
 ```
-AMIXER_INIT=sset 'Line' 80% unmute;sset 'Capture' 60% cap
+AMIXER_INIT=sset 'Input Source' Line;sset 'Capture' 60% cap
 ```
 
 The commands are passed to `amixer -c $AMIXER_CARD` on every container start,
 before the encoder is launched.
+
+To measure the result, probe the **stream**, not the device — the running
+container holds `hw:0,0` open and ALSA will not allow a second capture:
+
+```bash
+docker exec cast-to-roon ffmpeg -hide_banner -nostdin \
+  -i http://127.0.0.1:8000/cast.flac -t 5 -af volumedetect -f null - 2>&1 \
+  | grep -E "mean_volume|max_volume"
+```
+
+Aim for a `max_volume` of −30…−6 dB with music playing. `-91 dB` is silence,
+`0 dB` is clipping.
 
 ## 4. Add the container
 

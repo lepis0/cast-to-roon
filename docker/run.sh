@@ -67,7 +67,11 @@ log "Icecast is up"
 # ALSA mixer state is not persisted across host reboots on Unraid, so a capture
 # switch you unmuted by hand can come back muted. AMIXER_INIT re-applies the
 # settings on every container start, e.g.
-#   AMIXER_INIT=sset 'Line' 80% unmute;sset 'Capture' 60% cap
+#   AMIXER_INIT=sset 'Input Source' Line;sset 'Capture' 60% cap
+# On Realtek HDA the capture path is 'Input Source' (which input the ADC
+# listens to) plus 'Capture' (its level and switch). 'Line' there is a
+# playback control - it routes line-in to the speakers and does nothing
+# for recording.
 if [ "$SOURCE_MODE" = "alsa" ] && [ -n "${AMIXER_INIT:-}" ]; then
   echo "$AMIXER_INIT" | tr ';' '\n' | while IFS= read -r cmd; do
     [ -z "$cmd" ] && continue
