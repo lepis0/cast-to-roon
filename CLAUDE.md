@@ -118,8 +118,12 @@ kaapeli kytketään.
 
 **Varavaihtoehdot:**
 - **Linux-VM Unraidilla** + emolevyn äänipiirin vfio-pci-passthrough: ei
-  uutta rautaa lainkaan, VM:n oma kerneli tuo ajurit. Edellyttää että
-  HD-audio-laite on omassa IOMMU-ryhmässään
+  uutta rautaa lainkaan, VM:n oma kerneli tuo ajurit. **Todennettu
+  toimivaksi vaihtoehdoksi 5.8.2026:** AMD Starship/Matisse HD Audio
+  Controller (1022:1487, 0d:00.4) on omassa IOMMU-ryhmässään 25 ilman
+  USB-ohjaimia, joten passthrough on turvallinen. Ohje:
+  [docs/unraid-vm.md](./docs/unraid-vm.md). Ehto: LP10 on saatava
+  kaapelinmitan päähän palvelimen takapaneelista
 - Mikä tahansa muu jo olemassa oleva Linux-kone LP10:n lähellä käy
   kaappauslaitteeksi RPi:n sijaan — image on amd64 + arm64
 - **Custom-kerneli** (Unraid Kernel Helper) äänituella: toimii, mutta
@@ -211,10 +215,13 @@ Ennen raudan saapumista koko Roon-pää voi testata ilman LP10:tä:
 `/config/test.flac`). Tämä on tehty ja Roon soittaa aseman.
 
 **Avoin asia:** kaappauslaite. Unraid-host ei kelpaa (ei äänikorttiajureita
-kernelissä), joten tarvitaan RPi + USB-äänikortti tai VM-passthrough.
+kernelissä), joten valinta on VM-passthrough (0 €, IOMMU-ryhmä todettu
+siistiksi) tai RPi + USB-äänikortti (~50 €, LP10 saa olla missä tahansa).
 Kontti itsessään ei muutu kummassakaan tapauksessa — vain `ALSA_DEVICE`
-ja se, millä koneella kontti pyörii.
+ja se, millä koneella kontti pyörii. Ratkaisee käytännössä se, mihin LP10
+halutaan sijoittaa.
 
 Yksityiskohdat: [README.md](./README.md),
+[docs/unraid-vm.md](./docs/unraid-vm.md),
 [docs/raspberry-pi.md](./docs/raspberry-pi.md),
 [docs/unraid.md](./docs/unraid.md), [docs/roon.md](./docs/roon.md).

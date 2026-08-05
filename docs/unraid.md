@@ -38,8 +38,9 @@ Three ways forward, best first:
    [raspberry-pi.md](./raspberry-pi.md).
 2. **A Linux VM on Unraid** with the motherboard's HD Audio device passed
    through via vfio-pci, running this container inside it. No new hardware, but
-   the audio device has to sit in an IOMMU group of its own — check Tools →
-   System Devices before committing to this.
+   the audio device has to sit in an IOMMU group of its own, and the Cast
+   receiver has to reach the server's rear panel with a cable. Step by step in
+   [unraid-vm.md](./unraid-vm.md).
 3. **A custom kernel** (Unraid Kernel Helper) built with sound support. It
    works, but you rebuild it after every Unraid update. Not recommended for
    something that should just play music.

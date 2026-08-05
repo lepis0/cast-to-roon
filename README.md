@@ -162,6 +162,8 @@ receiver. See [`docs/raspberry-pi.md`](./docs/raspberry-pi.md).
 
 - [`docs/raspberry-pi.md`](./docs/raspberry-pi.md) — the capture host setup:
   hardware, install, levels
+- [`docs/unraid-vm.md`](./docs/unraid-vm.md) — the no-extra-hardware alternative:
+  pass the motherboard's audio controller to a small VM
 - [`docs/unraid.md`](./docs/unraid.md) — sound card passthrough, finding the
   capture device, setting input levels, and the kernel caveat above
 - [`docs/roon.md`](./docs/roon.md) — adding the station to Roon and grouping zones
