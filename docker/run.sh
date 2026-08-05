@@ -103,6 +103,24 @@ fi
 MP3_RATE="$SAMPLE_RATE"
 if [ "$SAMPLE_RATE" -gt 48000 ]; then MP3_RATE=48000; fi
 
+# A sound card's clock never quite matches the system clock, so ALSA timestamps
+# drift and occasionally step backwards - visible as a flood of "non monotonic
+# dts" from the MP3 muxer, which is stricter about it than Ogg. aresample=async
+# stretches or squeezes the audio to keep the output timeline monotonic. The
+# jitter is in both streams even when only one of them complains, and it is
+# worse in a VM, where timing is less precise than on bare metal.
+FILTER_CHAIN=""
+if [ "$SOURCE_MODE" = "alsa" ] && [ "${RESAMPLE_ASYNC:-true}" = "true" ]; then
+  FILTER_CHAIN="aresample=async=1"
+fi
+if [ -n "${AUDIO_FILTER:-}" ]; then
+  if [ -n "$FILTER_CHAIN" ]; then
+    FILTER_CHAIN="${FILTER_CHAIN},${AUDIO_FILTER}"
+  else
+    FILTER_CHAIN="$AUDIO_FILTER"
+  fi
+fi
+
 # Builds the full ffmpeg argument list in "$@" and runs it. Everything goes
 # through positional parameters rather than a string, so values with spaces
 # (STATION_NAME, TEST_FILE, ...) survive intact.
@@ -132,7 +150,7 @@ run_encoder() {
   # -sample_fmt is pinned so tone/file mode produces the same bit depth as a
   # real capture instead of ffmpeg's 24-bit default.
   set -- "$@" -map 0:a -c:a flac -ar "$SAMPLE_RATE" -ac "$CHANNELS" -sample_fmt "$SAMPLE_FORMAT"
-  if [ -n "${AUDIO_FILTER:-}" ]; then set -- "$@" -af "$AUDIO_FILTER"; fi
+  if [ -n "$FILTER_CHAIN" ]; then set -- "$@" -af "$FILTER_CHAIN"; fi
   set -- "$@" -f ogg -content_type application/ogg \
               -ice_name "$STATION_NAME" -ice_description "$STATION_DESCRIPTION" \
               -ice_genre "$STATION_GENRE" -ice_public 0 \
@@ -141,7 +159,7 @@ run_encoder() {
   # --- MP3 output (fallback for players without Ogg FLAC support) ---
   if [ "$ENABLE_MP3" = "true" ]; then
     set -- "$@" -map 0:a -c:a libmp3lame -b:a "$MP3_BITRATE" -ar "$MP3_RATE" -ac "$CHANNELS"
-    if [ -n "${AUDIO_FILTER:-}" ]; then set -- "$@" -af "$AUDIO_FILTER"; fi
+    if [ -n "$FILTER_CHAIN" ]; then set -- "$@" -af "$FILTER_CHAIN"; fi
     set -- "$@" -f mp3 -content_type audio/mpeg \
                 -ice_name "$STATION_NAME" -ice_description "$STATION_DESCRIPTION" \
                 -ice_genre "$STATION_GENRE" -ice_public 0 \

@@ -127,6 +127,25 @@ The mount is up, Roon plays, nothing comes out. Measure the input:
   `AUDIO_FILTER=volume=2.0`. Amplifying digitally after capture raises the noise
   floor with it.
 
+## Logs full of "non monotonically increasing dts"
+
+```
+[mp3 @ ...] Application provided invalid, non monotonically increasing dts to muxer
+[libmp3lame @ ...] Queue input is backward in time
+```
+
+The sound card's clock and the system clock never run at exactly the same rate,
+so ALSA timestamps drift and occasionally step backwards. The MP3 muxer is
+strict about monotonic timestamps and says so; the Ogg muxer accepts the same
+input silently, which is why only the MP3 mount complains even though both
+streams carry the jitter. It is more common in a VM, where timing is less
+precise than on bare metal.
+
+Since v0.1.3 the encoder runs `aresample=async=1` in `alsa` mode, which
+stretches or squeezes the audio to keep the output timeline monotonic. If you
+see this on an older image, update. `RESAMPLE_ASYNC=false` turns the correction
+off again, which is only useful for confirming that it is what changed something.
+
 ## Distortion or clipping
 
 Peak measurement at `0 dB` means the ADC is clipping. Turn the LP10's output
