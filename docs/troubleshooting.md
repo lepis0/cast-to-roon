@@ -7,6 +7,17 @@ docker logs --tail 50 cast-to-roon
 curl -s http://localhost:8000/status-json.xsl
 ```
 
+## Startup warnings you can ignore
+
+Two Icecast warnings show up on every start and neither affects playback:
+
+- `<hostname> not configured, using default value "localhost"` — Icecast only
+  needs a real hostname for public YP directory listings, which this stream does
+  not use. Set `ICECAST_HOSTNAME` to your host's IP if you want it gone.
+- `Unsupported or legacy stream type: "audio/mpeg"` — Icecast 2.5 saying MP3 is
+  a legacy format. The `/cast.mp3` fallback mount works regardless; set
+  `ENABLE_MP3=false` if you only ever use FLAC.
+
 ## The container restarts in a loop
 
 The entrypoint refuses to start on a misconfiguration and says why. The common
