@@ -167,13 +167,88 @@ Set the VM to autostart in the VMs tab. Docker's own service starts the
 container from `--restart unless-stopped`, so a power cut recovers on its own:
 host → VM → container → stream.
 
+## 7. Keep it updated without touching it
+
+The VM does not show up in Unraid's Docker tab, so nothing about it updates
+itself unless you set that up. Two mechanisms, one for the container and one for
+the OS.
+
+**The container** — Watchtower, checking nightly at 04:00:
+
+```bash
+docker run -d \
+  --name watchtower \
+  --restart unless-stopped \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -e TZ=Europe/Helsinki \
+  containrrr/watchtower \
+  --cleanup --schedule "0 0 4 * * *"
+```
+
+The schedule is six-field cron (seconds first). `--cleanup` deletes the
+superseded image instead of letting old layers pile up on a 10 GB disk.
+Watchtower pulls `:latest`, so a release tag in this repo reaches the VM within
+a day, and it updates itself too.
+
+**The OS** — Debian's own unattended-upgrades, security updates only:
+
+```bash
+sudo apt install -y unattended-upgrades
+
+sudo tee /etc/apt/apt.conf.d/20auto-upgrades >/dev/null <<'EOF'
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT::Periodic::AutocleanInterval "7";
+EOF
+
+sudo tee /etc/apt/apt.conf.d/51unattended-upgrades-local >/dev/null <<'EOF'
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-WithUsers "false";
+Unattended-Upgrade::Automatic-Reboot-Time "05:00";
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+EOF
+
+sudo systemctl enable --now unattended-upgrades
+```
+
+Kernel updates only take effect after a reboot, and an appliance that nobody
+logs into will otherwise run an outdated kernel indefinitely — hence the 05:00
+reboot, an hour after Watchtower so the two never collide. `WithUsers "false"`
+keeps it from rebooting out from under an SSH session. The container returns on
+its own through `--restart unless-stopped`.
+
+Check both:
+
+```bash
+systemctl list-timers 'apt-daily*'
+sudo unattended-upgrade --dry-run --debug | tail -20
+docker logs watchtower | tail
+```
+
+## Passwordless SSH
+
+Optional, but the alternative is typing a password every time you check on it:
+
+```bash
+# on your workstation
+ssh-keygen -t ed25519          # skip if you already have a key
+ssh-copy-id jani@<vm-ip>       # asks for the password once
+ssh -o BatchMode=yes jani@<vm-ip> true && echo ok
+```
+
+Once keys work you can turn password logins off entirely. Unraid's VNC console
+is the way back in if you ever lose the key, so this is not the one-way door it
+would be on a remote server:
+
+```bash
+echo 'PasswordAuthentication no' | sudo tee /etc/ssh/sshd_config.d/99-no-password.conf
+sudo systemctl restart ssh
+```
+
 ## Maintenance notes
 
 - **Unraid updates** keep the vfio binding (it lives in `/boot/config`), but a
   major version bump is worth a check afterwards.
 - **The Roon URL** is the VM's IP, not the Unraid IP: `http://<vm-ip>:8000/cast.flac`.
-- **Two hosts to update now**: the container inside the VM does not appear in
-  Unraid's Docker tab. Either `docker pull` in the VM or install Watchtower
-  there.
 - **The Unraid container template** in this repo is only useful for `tone`-mode
   testing on the host from here on; the real capture lives in the VM.
