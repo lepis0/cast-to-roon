@@ -173,22 +173,59 @@ The VM does not show up in Unraid's Docker tab, so nothing about it updates
 itself unless you set that up. Two mechanisms, one for the container and one for
 the OS.
 
-**The container** — Watchtower, checking nightly at 04:00:
+**The container** — a Compose file plus one cron line. Not Watchtower: the
+original `containrrr/watchtower` speaks Docker API 1.25, current daemons require
+at least 1.40, and it crash-loops on `client version 1.25 is too old`. The
+project has not shipped a release since 2024. Community forks exist, but for a
+single container this needs no third-party tool at all — and it avoids handing
+`/var/run/docker.sock`, which is root on the host, to a container.
+
+Move the settings into a file, so the run command stops living in your shell
+history — and so the passwords carry over without being retyped:
 
 ```bash
-docker run -d \
-  --name watchtower \
-  --restart unless-stopped \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -e TZ=Europe/Helsinki \
-  containrrr/watchtower \
-  --cleanup --schedule "0 0 4 * * *"
+mkdir -p ~/cast-to-roon-stack && cd ~/cast-to-roon-stack
+
+docker inspect cast-to-roon --format '{{range .Config.Env}}{{println .}}{{end}}' \
+  | grep -E '^(STATION_NAME|ICECAST_SOURCE_PASSWORD|ICECAST_ADMIN_PASSWORD|TZ|SOURCE_MODE|ALSA_DEVICE|AMIXER_INIT)=' \
+  > stack.env
+chmod 600 stack.env
+
+cat > docker-compose.yml <<'YAML'
+services:
+  cast-to-roon:
+    image: ghcr.io/lepis0/cast-to-roon:latest
+    container_name: cast-to-roon
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    devices:
+      - /dev/snd:/dev/snd
+    volumes:
+      - /opt/cast-to-roon:/config
+    env_file:
+      - stack.env
+YAML
+
+docker rm -f cast-to-roon
+docker compose up -d
 ```
 
-The schedule is six-field cron (seconds first). `--cleanup` deletes the
-superseded image instead of letting old layers pile up on a 10 GB disk.
-Watchtower pulls `:latest`, so a release tag in this repo reaches the VM within
-a day, and it updates itself too.
+`env_file` takes values literally to end of line, which is what keeps
+`AMIXER_INIT`'s quotes and semicolons intact.
+
+Then the nightly update, as a **user** crontab — no root needed, since the
+account is already in the `docker` group:
+
+```bash
+printf '%s\n' "0 4 * * * cd ~/cast-to-roon-stack && { date; /usr/bin/docker compose pull -q && /usr/bin/docker compose up -d && /usr/bin/docker image prune -f; } >> ~/cast-to-roon-stack/update.log 2>&1" | crontab -
+crontab -l
+```
+
+`compose up -d` is a no-op when the pulled image is unchanged, so the stream is
+only interrupted on the nights a new release actually lands. `image prune`
+keeps the superseded layers from filling a 10 GB disk, and `update.log` is there
+when you want to know what happened.
 
 **The OS** — Debian's own unattended-upgrades, security updates only:
 

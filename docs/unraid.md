@@ -183,7 +183,7 @@ unplugged cable visible in the Unraid dashboard.
 ## Updating
 
 The image is rebuilt on every release and `:latest` moves with it, so
-Watchtower (or Unraid's own update check) picks it up like any other container.
+Unraid's own update check picks it up like any other container.
 
 ## Running on a Raspberry Pi instead
 

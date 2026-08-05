@@ -105,7 +105,10 @@ docker pull ghcr.io/lepis0/cast-to-roon:latest
 docker rm -f cast-to-roon && docker run -d ...   # same command as above
 ```
 
-Or install Watchtower on the Pi if you want it automatic.
+For an automatic nightly update, use the Compose file plus cron line from
+[unraid-vm.md](./unraid-vm.md#7-keep-it-updated-without-touching-it) — it
+applies here unchanged. Watchtower is not the answer any more: the original
+project speaks a Docker API version current daemons refuse.
 
 ## Quality note
 
