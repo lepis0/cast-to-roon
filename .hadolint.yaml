@@ -1,0 +1,5 @@
+ignored:
+  # DL3018: "pin versions in apk add". The base image tag is pinned instead, so
+  # a rebuild picks up Alpine's security updates for icecast/ffmpeg. Pinning
+  # every package here would freeze those, and Dependabot cannot bump apk pins.
+  - DL3018
