@@ -1,0 +1,11 @@
+**/.git
+**/.vscode
+**/.idea
+.claude
+docs
+unraid
+scripts
+*.md
+!README.md
+*.log
+.env

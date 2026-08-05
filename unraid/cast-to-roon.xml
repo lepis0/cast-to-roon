@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>cast-to-roon</Name>
+  <Repository>ghcr.io/lepis0/cast-to-roon:latest</Repository>
+  <Registry>https://github.com/lepis0/cast-to-roon/pkgs/container/cast-to-roon</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/lepis0/cast-to-roon/issues</Support>
+  <Project>https://github.com/lepis0/cast-to-roon</Project>
+  <Overview>
+    Captures the line-out of a Google Cast / AirPlay receiver (e.g. Arylic LP10)
+    from the host's Line In and serves it as a lossless FLAC Icecast stream that
+    Roon can play as an internet radio station. Set SOURCE_MODE to "tone" to
+    test the Roon side before the capture hardware is wired up.
+  </Overview>
+  <Category>MediaServer:Music Tools:Audio</Category>
+  <WebUI>http://[IP]:[PORT:8000]/</WebUI>
+  <ExtraParams>--device /dev/snd</ExtraParams>
+  <PostArgs/>
+  <DonateText/>
+  <DonateLink/>
+  <Config Name="WebUI / stream port" Target="8000" Default="8000" Mode="tcp"
+          Description="Icecast port. The stream is http://[IP]:[PORT]/cast.flac"
+          Type="Port" Display="always" Required="true" Mask="false">8000</Config>
+  <Config Name="Appdata" Target="/config" Default="/mnt/user/appdata/cast-to-roon"
+          Mode="rw" Description="Holds test audio and optional icecast.xml overrides"
+          Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/cast-to-roon</Config>
+  <Config Name="Source mode" Target="SOURCE_MODE" Default="alsa"
+          Description="alsa = capture Line In, tone = 440 Hz test signal, file = loop TEST_FILE"
+          Type="Variable" Display="always" Required="true" Mask="false">alsa</Config>
+  <Config Name="ALSA device" Target="ALSA_DEVICE" Default="hw:0,0"
+          Description="Capture device. Find it with 'arecord -l' inside the container."
+          Type="Variable" Display="always" Required="true" Mask="false">hw:0,0</Config>
+  <Config Name="Icecast source password" Target="ICECAST_SOURCE_PASSWORD" Default=""
+          Description="Change this. Allowed characters: A-Z a-z 0-9 . _ -"
+          Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Icecast admin password" Target="ICECAST_ADMIN_PASSWORD" Default=""
+          Description="Change this."
+          Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Station name" Target="STATION_NAME" Default="Cast to Roon"
+          Description="Shown by Roon and on the Icecast status page"
+          Type="Variable" Display="always" Required="false" Mask="false">Cast to Roon</Config>
+  <Config Name="Sample rate" Target="SAMPLE_RATE" Default="48000"
+          Description="Capture sample rate in Hz"
+          Type="Variable" Display="advanced" Required="false" Mask="false">48000</Config>
+  <Config Name="Sample format" Target="SAMPLE_FORMAT" Default="s16"
+          Description="s16 or s32"
+          Type="Variable" Display="advanced" Required="false" Mask="false">s16</Config>
+  <Config Name="Mixer init" Target="AMIXER_INIT" Default=""
+          Description="Semicolon-separated amixer commands run at startup, e.g. sset 'Line' 80% unmute;sset 'Capture' 60% cap"
+          Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Enable MP3 mount" Target="ENABLE_MP3" Default="true"
+          Description="Serve an MP3 320k fallback at /cast.mp3 alongside the FLAC mount"
+          Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+  <Config Name="TZ" Target="TZ" Default="Europe/Helsinki"
+          Description="Timezone"
+          Type="Variable" Display="advanced" Required="false" Mask="false">Europe/Helsinki</Config>
+</Container>

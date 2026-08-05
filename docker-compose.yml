@@ -1,0 +1,23 @@
+services:
+  cast-to-roon:
+    image: ghcr.io/lepis0/cast-to-roon:latest
+    container_name: cast-to-roon
+    ports:
+      - "8000:8000"
+    devices:
+      # The onboard Realtek capture device. Passing the whole /dev/snd tree is
+      # simplest; restrict it to a single card with /dev/snd/pcmC0D0c if you
+      # prefer (see docs/unraid.md for finding the right card).
+      - /dev/snd:/dev/snd
+    volumes:
+      - /mnt/user/appdata/cast-to-roon:/config
+    environment:
+      - SOURCE_MODE=alsa
+      - ALSA_DEVICE=hw:0,0
+      - SAMPLE_RATE=48000
+      - CHANNELS=2
+      - STATION_NAME=Cast to Roon
+      - ICECAST_SOURCE_PASSWORD=vaihda-tama
+      - ICECAST_ADMIN_PASSWORD=vaihda-tamakin
+      - TZ=Europe/Helsinki
+    restart: unless-stopped

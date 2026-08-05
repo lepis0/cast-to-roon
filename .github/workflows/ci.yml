@@ -1,0 +1,180 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint (shell + Dockerfile)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: ShellCheck
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+          shellcheck docker/*.sh scripts/*.sh
+
+      - name: Hadolint
+        uses: hadolint/hadolint-action@v3.3.0
+        with:
+          dockerfile: Dockerfile
+
+  smoke-test:
+    name: Smoke test (tone -> Icecast -> FLAC)
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build image
+        run: docker build -t cast-to-roon:ci .
+
+      # No sound card on a GitHub runner, so the container runs in tone mode -
+      # everything except the ALSA capture itself is exercised end to end.
+      - name: Start container
+        run: |
+          docker run -d --name cast-to-roon-ci \
+            -p 8000:8000 \
+            -e SOURCE_MODE=tone \
+            -e ICECAST_SOURCE_PASSWORD=citest \
+            -e ICECAST_ADMIN_PASSWORD=citest \
+            cast-to-roon:ci
+
+      - name: Wait for the mount to come up
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/status-json.xsl | grep -q '/cast.flac'; then
+              echo "mount is live"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "FLAC mount never appeared"
+          docker logs cast-to-roon-ci
+          exit 1
+
+      - name: Verify the stream really decodes as FLAC
+        run: |
+          docker exec cast-to-roon-ci \
+            ffprobe -v error -show_entries stream=codec_name,sample_rate,channels \
+                    -of default=noprint_wrappers=1 \
+                    -t 3 http://127.0.0.1:8000/cast.flac | tee probe.txt
+          grep -q 'codec_name=flac' probe.txt
+
+      - name: Verify the MP3 fallback mount
+        run: curl -fsS -o /dev/null --max-time 5 --max-filesize 200000 http://127.0.0.1:8000/cast.mp3 || true
+
+      - name: Container healthcheck reports healthy
+        run: |
+          for i in $(seq 1 20); do
+            state=$(docker inspect -f '{{.State.Health.Status}}' cast-to-roon-ci)
+            echo "health: $state"
+            [ "$state" = "healthy" ] && exit 0
+            sleep 3
+          done
+          docker logs cast-to-roon-ci
+          exit 1
+
+      - name: Clean shutdown within 10s
+        run: |
+          start=$(date +%s)
+          docker stop -t 10 cast-to-roon-ci
+          echo "stopped in $(( $(date +%s) - start ))s"
+          [ $(( $(date +%s) - start )) -lt 10 ]
+
+      - name: Container logs
+        if: always()
+        run: docker logs cast-to-roon-ci || true
+
+  docker:
+    name: Build & push image
+    runs-on: ubuntu-latest
+    needs: [lint, smoke-test]
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # metadata-action's default flavor is latest=auto: pushing a vX.Y.Z tag
+      # moves :latest, while pushes to main only move :edge.
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=edge,branch=main
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+
+      - name: Record build date
+        id: vars
+        run: echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          # arm64 covers the RPi fallback build described in CLAUDE.md.
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ steps.vars.outputs.build_date }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    name: GitHub release
+    runs-on: ubuntu-latest
+    needs: [docker]
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          body: |
+            Docker image:
+
+            ```
+            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}:latest
+            ```

@@ -1,0 +1,19 @@
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.claude/
+
+# Local runtime data
+/config/
+*.log
+
+# Test audio used with SOURCE_MODE=file
+*.flac
+*.wav
+*.mp3
+
+# Env
+.env
+.env.local
