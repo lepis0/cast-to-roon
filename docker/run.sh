@@ -37,7 +37,14 @@ nap() { sleep "$1" & wait $! 2>/dev/null || true; }
 # ------------------------------------------------------------------ icecast --
 
 log "starting Icecast on port ${ICECAST_PORT} (config: ${ICECAST_CONFIG})"
-icecast -c "$ICECAST_CONFIG" &
+if [ "$(id -u)" = "0" ]; then
+  # Icecast exits with "You should not run icecast2 as root". The container as a
+  # whole stays root for /dev/snd, only Icecast is dropped - it has no business
+  # touching the sound card anyway.
+  su-exec icecast:icecast icecast -c "$ICECAST_CONFIG" &
+else
+  icecast -c "$ICECAST_CONFIG" &
+fi
 ICECAST_PID=$!
 
 i=0

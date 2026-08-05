@@ -74,9 +74,10 @@ else
         <source-timeout>10</source-timeout>
         <!-- Roon buffers before it starts decoding; bursting a chunk of the
              stream on connect makes playback start in ~1s instead of ~5s. -->
-        <burst-on-connect>1</burst-on-connect>
         <burst-size>131072</burst-size>
     </limits>
+
+    <prng-seed type="profile">linux</prng-seed>
 
     <authentication>
         <source-password>$(xml_escape "$ICECAST_SOURCE_PASSWORD")</source-password>
@@ -137,6 +138,12 @@ fi
 # /dev/snd, whose device nodes are root:audio 0660 on the host - a non-root user
 # only works if AUDIO_GID matches the host's audio group.
 if [ "$PUID" = "0" ]; then
+  # Icecast itself refuses to run as root, so run.sh starts it as the icecast
+  # user - which means that user, and only that user, has to reach the config
+  # (it holds the passwords) and the log directory.
+  chgrp icecast "$ICECAST_CONFIG"
+  chmod 640 "$ICECAST_CONFIG"
+  chown -R icecast:icecast /var/log/icecast
   log "running as root (set PUID/PGID to drop privileges)"
   exec "$@"
 fi
@@ -162,5 +169,8 @@ fi
 
 log "starting as ${USER_NAME}:${GROUP_NAME} (${PUID}:${PGID})"
 chown -R "$PUID:$PGID" /config /var/log/icecast "$(dirname "$ICECAST_CONFIG")"
+# Not root any more, so Icecast runs as this user rather than the icecast one.
+chown "$PUID:$PGID" "$ICECAST_CONFIG"
+chmod 600 "$ICECAST_CONFIG"
 
 exec su-exec "${USER_NAME}:${GROUP_NAME}" "$@"

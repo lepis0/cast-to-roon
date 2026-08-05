@@ -7,14 +7,22 @@ FROM alpine:3.24
 # alsa-utils  - arecord/amixer, for verifying the capture device from inside
 #               the container (see docs/unraid.md)
 # su-exec     - drops privileges to PUID/PGID when requested (see entrypoint.sh)
+# mailcap     - /etc/mime.types, which Icecast warns about on every start
 RUN apk add --no-cache \
       icecast \
       ffmpeg \
       alsa-utils \
       su-exec \
+      mailcap \
       tzdata \
       ca-certificates \
       curl
+
+# Icecast refuses to run as root, so it always runs as this user even when the
+# rest of the container is root (which /dev/snd access normally requires).
+RUN if ! getent passwd icecast >/dev/null; then \
+      addgroup -S icecast && adduser -S -D -H -G icecast icecast; \
+    fi
 
 COPY docker/entrypoint.sh docker/run.sh docker/healthcheck.sh /opt/cast-to-roon/
 RUN chmod +x /opt/cast-to-roon/*.sh

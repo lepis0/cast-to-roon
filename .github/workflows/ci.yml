@@ -68,16 +68,24 @@ jobs:
           docker logs cast-to-roon-ci
           exit 1
 
+      # ffprobe exits as soon as it has identified the stream, so it terminates
+      # even though the mount never ends.
       - name: Verify the stream really decodes as FLAC
         run: |
-          docker exec cast-to-roon-ci \
-            ffprobe -v error -show_entries stream=codec_name,sample_rate,channels \
+          timeout 30 docker exec cast-to-roon-ci \
+            ffprobe -v error -show_entries stream=codec_name,sample_rate,channels,sample_fmt \
                     -of default=noprint_wrappers=1 \
-                    -t 3 http://127.0.0.1:8000/cast.flac | tee probe.txt
+                    http://127.0.0.1:8000/cast.flac | tee probe.txt
           grep -q 'codec_name=flac' probe.txt
+          grep -q 'sample_rate=48000' probe.txt
+          grep -q 'channels=2' probe.txt
 
       - name: Verify the MP3 fallback mount
-        run: curl -fsS -o /dev/null --max-time 5 --max-filesize 200000 http://127.0.0.1:8000/cast.mp3 || true
+        run: |
+          # -m 5 always trips on an endless stream; the status code is the point.
+          code=$(curl -s -o /dev/null -m 5 -w '%{http_code}' http://127.0.0.1:8000/cast.mp3 || true)
+          echo "HTTP $code"
+          [ "$code" = "200" ]
 
       - name: Container healthcheck reports healthy
         run: |
