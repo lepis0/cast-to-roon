@@ -158,12 +158,27 @@ vinyylistriimerissä, mutta lähde on jo digitaalinen.
 
 ## Toteutusjärjestys (ehdotus)
 
-1. Icecast2 + FLAC-striimaus pystyyn Docker-kontissa Unraidilla, testaa
+1. ✅ Icecast2 + FLAC-striimaus pystyyn Docker-kontissa Unraidilla, testaa
    yhdellä staattisella audiotiedostolla että Roon löytää ja soittaa aseman
 2. Hanki Arylic LP10, kytke sen analogilähtö Unraid-koneen Line In
    -jackiin, varmista signaali kaappautuu (`arecord`-testi kontista)
-3. Yhdistä kaappaus Icecast-lähteeseen (darkice/liquidsoap-konfiguraatio)
+3. ✅ Yhdistä kaappaus Icecast-lähteeseen (`SOURCE_MODE=alsa`) — koodi valmis,
+   jäljellä vain oikean `ALSA_DEVICE`:n varmistaminen raudan saavuttua
 4. Testaa Yle Areenalla Androidista päästä päähän (Cast-painike → LP10)
 5. Lisää Roonissa asema huoneryhmiin ja testaa monihuonetoisto
 6. (Valinnainen) jos etäisyys vaatii RPi-varianttia, toteuta se samalla
-   periaatteella + Bluetooth A2DP-backup
+   periaatteella + Bluetooth A2DP-backup — image on jo multi-arch (arm64)
+
+## Toteutuksen tila
+
+Ohjelmistopuoli on valmis ja julkaistu: <https://github.com/lepis0/cast-to-roon>,
+image `ghcr.io/lepis0/cast-to-roon:latest`.
+
+Enkooderiksi valikoitui **ffmpeg** darkicen/liquidsoapin sijaan — sama ratkaisu
+kuin vinyylistriimerissä: yksi prosessi tuottaa sekä FLAC/Ogg- että
+MP3-varamountin, eikä erillistä konfiguraatiokieltä tarvita.
+
+Ennen raudan saapumista koko Roon-pää voi testata ilman LP10:tä:
+`SOURCE_MODE=tone` (440 Hz testiääni) tai `SOURCE_MODE=file` (looppaa
+`/config/test.flac`). Yksityiskohdat: [README.md](./README.md),
+[docs/unraid.md](./docs/unraid.md), [docs/roon.md](./docs/roon.md).
