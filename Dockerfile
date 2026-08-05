@@ -28,10 +28,11 @@ COPY docker/entrypoint.sh docker/run.sh docker/healthcheck.sh /opt/cast-to-roon/
 RUN chmod +x /opt/cast-to-roon/*.sh
 
 # Defaults are also documented in README.md - keep the two in sync.
+# ICECAST_SOURCE_PASSWORD and ICECAST_ADMIN_PASSWORD are deliberately not set
+# here - baking anything password-shaped into an image layer trips secret
+# scanners. The entrypoint defaults them to "change-me" and warns.
 ENV ICECAST_PORT=8000 \
     ICECAST_ADMIN_USER=admin \
-    ICECAST_SOURCE_PASSWORD=change-me \
-    ICECAST_ADMIN_PASSWORD=change-me \
     ICECAST_MAX_CLIENTS=10 \
     ICECAST_LOG_LEVEL=3 \
     STATION_NAME="Cast to Roon" \

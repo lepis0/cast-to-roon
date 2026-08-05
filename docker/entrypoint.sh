@@ -8,6 +8,12 @@ die() { echo "[cast-to-roon] ERROR: $*" >&2; exit 1; }
 
 log "version ${CAST_TO_ROON_VERSION:-dev}"
 
+# Defaulted here rather than in the Dockerfile, so no password-shaped value ends
+# up in an image layer.
+ICECAST_SOURCE_PASSWORD="${ICECAST_SOURCE_PASSWORD:-change-me}"
+ICECAST_ADMIN_PASSWORD="${ICECAST_ADMIN_PASSWORD:-change-me}"
+export ICECAST_SOURCE_PASSWORD ICECAST_ADMIN_PASSWORD
+
 # ---------------------------------------------------------------- validation --
 
 case "$SOURCE_MODE" in
@@ -77,8 +83,6 @@ else
         <burst-size>131072</burst-size>
     </limits>
 
-    <prng-seed type="profile">linux</prng-seed>
-
     <authentication>
         <source-password>$(xml_escape "$ICECAST_SOURCE_PASSWORD")</source-password>
         <relay-password>$(xml_escape "$ICECAST_SOURCE_PASSWORD")</relay-password>
@@ -127,6 +131,9 @@ else
 
     <security>
         <chroot>0</chroot>
+        <!-- Without this Icecast falls back to libigloo's default entropy and
+             says so on every start. Must live inside <security>. -->
+        <prng-seed type="profile">linux</prng-seed>
     </security>
 </icecast>
 EOF
