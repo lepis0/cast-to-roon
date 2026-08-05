@@ -17,6 +17,7 @@
   </Overview>
   <Category>MediaServer:Music Tools:Audio</Category>
   <WebUI>http://[IP]:[PORT:8000]/</WebUI>
+  <Icon>https://raw.githubusercontent.com/lepis0/cast-to-roon/main/unraid/icon.png</Icon>
   <ExtraParams>--device /dev/snd</ExtraParams>
   <PostArgs/>
   <DonateText/>
