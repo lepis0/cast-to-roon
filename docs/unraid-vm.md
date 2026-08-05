@@ -241,7 +241,7 @@ EOF
 sudo tee /etc/apt/apt.conf.d/51unattended-upgrades-local >/dev/null <<'EOF'
 Unattended-Upgrade::Automatic-Reboot "true";
 Unattended-Upgrade::Automatic-Reboot-WithUsers "false";
-Unattended-Upgrade::Automatic-Reboot-Time "05:00";
+Unattended-Upgrade::Automatic-Reboot-Time "07:30";
 Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
 EOF
 
@@ -249,10 +249,14 @@ sudo systemctl enable --now unattended-upgrades
 ```
 
 Kernel updates only take effect after a reboot, and an appliance that nobody
-logs into will otherwise run an outdated kernel indefinitely — hence the 05:00
-reboot, an hour after Watchtower so the two never collide. `WithUsers "false"`
-keeps it from rebooting out from under an SSH session. The container returns on
-its own through `--restart unless-stopped`.
+logs into will otherwise run an outdated kernel indefinitely — hence the
+automatic one. The time has to fall *after* Debian's upgrade window, not before
+it: `apt-daily-upgrade.timer` fires at 06:00 with up to an hour of randomized
+delay, and `Automatic-Reboot-Time` schedules the reboot for the next occurrence
+of that clock time. Set it to 05:00 and a kernel installed at 06:50 waits until
+the following morning; 07:30 reboots the same day. `WithUsers "false"` keeps it
+from rebooting out from under an SSH session, and the container returns on its
+own through `restart: unless-stopped`.
 
 Check both:
 
