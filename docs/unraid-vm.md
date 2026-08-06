@@ -90,9 +90,30 @@ so `0x05` is normally free.
 Encoding one stereo FLAC stream is a few percent of a core; this VM is idle
 almost all the time.
 
-Install the OS as usual, then give the VM a **DHCP reservation** in your router.
-Roon stores the station as a literal URL, so a changed IP means editing the
-station by hand.
+Install the OS as usual, then **pin the VM's address**. Roon stores the station
+as a literal URL, so a changed IP means editing the station by hand.
+
+A DHCP reservation in the router is the least intrusive way. To set it in the
+guest instead, a Debian netinstall leaves you with plain ifupdown — no
+NetworkManager, no netplan — so replace the `dhcp` stanza in
+`/etc/network/interfaces`:
+
+```
+allow-hotplug enp1s0
+iface enp1s0 inet static
+    address 192.168.1.50/24
+    gateway 192.168.1.1
+```
+
+Debian 13 ships no `resolvconf`, which makes a `dns-nameservers` line here a
+no-op. Write the resolvers into `/etc/resolv.conf` by hand instead: dhcpcd had
+been generating that file, and nothing regenerates it once the interface is
+static. Reboot to apply — changing the address of the interface you are
+connected over drops the SSH session whichever way you do it.
+
+Either way, pick an address **outside the router's DHCP pool**, or reserve it
+there as well. A static address inside the pool works until the day the router
+hands the same one to something else.
 
 ## 3. Verify the guest sees the card
 
@@ -263,7 +284,7 @@ Check both:
 ```bash
 systemctl list-timers 'apt-daily*'
 sudo unattended-upgrade --dry-run --debug | tail -20
-docker logs watchtower | tail
+tail ~/cast-to-roon-stack/update.log
 ```
 
 ## Passwordless SSH
