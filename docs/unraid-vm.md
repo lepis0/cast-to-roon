@@ -111,6 +111,14 @@ been generating that file, and nothing regenerates it once the interface is
 static. Reboot to apply — changing the address of the interface you are
 connected over drops the SSH session whichever way you do it.
 
+**Write `resolv.conf` after that reboot, not before.** The dhcpcd still running
+from the DHCP era strips its own `nameserver` lines out of the file when the
+interface goes down during shutdown, taking any you added with them. On the way
+back up nothing recreates it, so the machine boots with a `resolv.conf` holding
+nothing but dhcpcd's comment header. Everything by IP keeps working, which is
+what makes this quiet: the stream is unaffected, and only the unattended
+container and OS updates below start failing to resolve their registries.
+
 Either way, pick an address **outside the router's DHCP pool**, or reserve it
 there as well. A static address inside the pool works until the day the router
 hands the same one to something else.
