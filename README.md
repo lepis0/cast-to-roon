@@ -93,7 +93,7 @@ you only need to set the two passwords and `ALSA_DEVICE`.
 | ---------------------- | -------------- | ----------------------------------------------------------- |
 | `SOURCE_MODE`          | `alsa`         | `alsa` (capture), `tone` (test signal), `file` (loop a file) |
 | `ALSA_DEVICE`          | `hw:0,0`       | ALSA capture device, `alsa` mode only                        |
-| `SAMPLE_RATE`          | `48000`        | Capture sample rate in Hz                                    |
+| `SAMPLE_RATE`          | `48000`        | Capture sample rate in Hz, or `auto` to measure it (see below) |
 | `SAMPLE_FORMAT`        | `s16`          | Capture sample format: `s16` or `s32`                        |
 | `CHANNELS`             | `2`            | Capture channel count                                        |
 | `TEST_FILE`            | `/config/test.flac` | File looped in `file` mode                              |
@@ -104,6 +104,44 @@ you only need to set the two passwords and `ALSA_DEVICE`.
 | `AMIXER_INIT`          | _(empty)_      | `;`-separated amixer commands applied at startup, e.g. `sset 'Input Source' Line;sset 'Capture' 60% cap` |
 | `AMIXER_CARD`          | `0`            | Card number `AMIXER_INIT` applies to                          |
 | `SOURCE_RESTART_DELAY` | `5`            | Seconds to wait before restarting a dead encoder             |
+| `ALSA_PROC_DIR`        | `/proc/asound` | Where the host's ALSA proc directory is visible, `auto` rate only |
+| `RATE_CANDIDATES`      | `32000 44100 48000 88200 96000` | Rates `auto` is allowed to settle on              |
+| `RATE_PROBE_SECONDS`   | `6`            | Length of the `auto` rate measurement                        |
+| `RATE_TOLERANCE`       | `4`            | Percent a measurement may differ from a candidate rate       |
+| `RATE_WATCH_INTERVAL`  | `10`           | Seconds between mid-stream rate checks                       |
+
+#### `SAMPLE_RATE=auto`
+
+An S/PDIF receiver has no rate of its own - it reproduces whatever the
+transmitter sends. A Cast-capable streamer changes that rate to match whatever
+app is casting, so one fixed value cannot be right for all of them. Measured on
+an Arylic LP10: Yle Areena sends 48 kHz, Tidal on "High" sends 44.1 kHz, and
+Tidal in hi-res sends 176.4 kHz, which is past what a 96 kHz receiver can lock
+to at all.
+
+Getting it wrong is quiet. There is no error and no dropout - a source slower
+than the configured rate simply plays sharp and fast, and a faster one overruns
+the buffer and stutters.
+
+`auto` measures the rate before every encoder start, by asking for a known rate
+and timing how long the samples take to arrive: capturing at 48 kHz from a
+44.1 kHz source takes 8.8% longer than requested. It then keeps watching, and
+restarts the encoder to re-measure when the source changes rate mid-stream.
+
+That watch reads the driver's own frame counter from `/proc/asound`, which
+Docker masks by default. `runc` refuses to mount anything back onto a path
+inside `/proc`, so the host directory has to go somewhere else:
+
+```
+-v /proc/asound:/host-asound:ro -e ALSA_PROC_DIR=/host-asound
+```
+
+Without it, `auto` still measures at every encoder start but cannot notice a
+change mid-stream; the container says so in its log rather than doing half the
+job silently. ffmpeg's own timing cannot be used for this: the ALSA input
+timestamps packets from the system clock and `aresample=async` then stretches
+the audio to fit, so a source that changes rate keeps reporting `speed=1x`
+while quietly resampling.
 | `FFMPEG_LOG_LEVEL`     | `warning`      | ffmpeg verbosity                                             |
 
 ### Stream
