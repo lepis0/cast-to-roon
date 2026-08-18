@@ -59,7 +59,7 @@ VOLUME ["/config"]
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD /opt/cast-to-roon/healthcheck.sh
+  CMD ["/opt/cast-to-roon/healthcheck.sh"]
 
 ARG VERSION=dev
 ARG COMMIT=none
