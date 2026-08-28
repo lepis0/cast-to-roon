@@ -109,6 +109,54 @@ docker exec cast-to-roon arecord -l
 
 Card names are more stable than indexes across reboots, so prefer
 `ALSA_DEVICE=hw:CARD=Generic,DEV=0` over `hw:0,0` once you know which one works.
+The next section is why that matters.
+
+## The card index changed after a reboot
+
+**If you have more than one capture card, never address one by number.** Card
+indexes are assigned in probe order, and USB and PCI drivers race, so a machine
+with (say) a USB S/PDIF receiver and an onboard analog input can hand out `0`
+and `1` the other way round on any boot — an unclean shutdown or a firmware
+update is enough to reshuffle them.
+
+**This failure is silent, which is what makes it nasty.** Nothing errors. The
+container starts, Icecast reports `healthy`, the mount is up and even advertises
+a plausible 48 kHz/16-bit FLAC — that is just the other card's default rate. The
+encoder is simply recording the wrong input, and the first hint is usually that
+the stream is silent or sounds wrong.
+
+Check which device is *really* being captured, rather than trusting the Icecast
+status page. For a USB card:
+
+```bash
+grep -A3 '^Capture:' /proc/asound/card0/stream0   # want: Status: Running
+```
+
+and for an HD-Audio card:
+
+```bash
+cat /proc/asound/card1/pcm0c/sub0/status          # `closed` = nothing reading it
+```
+
+The fix is to address the card by its stable ALSA id instead of its number. Read
+the ids off the host:
+
+```bash
+cat /proc/asound/cards          # the name in [brackets] is the id
+cat /proc/asound/card0/id       # or just this
+```
+
+Then set `ALSA_DEVICE` to that id — both `hw:Rx,0` and the longer
+`hw:CARD=Rx,DEV=0` work, where `Rx` is the id:
+
+```
+ALSA_DEVICE=hw:Rx,0
+```
+
+This is safe to combine with `SAMPLE_RATE=auto`: ALSA keeps a
+`/proc/asound/Rx -> card0` symlink, so the rate measurement follows the card
+wherever it lands. If you mount the host's proc dir for `auto`
+(`-v /proc/asound:/host-asound:ro`), the symlink comes along with it.
 
 ## The stream exists but is silent
 

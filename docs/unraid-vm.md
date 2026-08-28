@@ -159,6 +159,23 @@ docker run -d \
 Confirm the device number with `arecord -l` rather than trusting `hw:0,0` — the
 passed-through card is usually the only one, but check.
 
+**If you pass through two capture cards** — say the onboard HD-Audio for an
+analog input *and* a USB S/PDIF receiver — do not address either by number. PCI
+and USB probe order is a race, so `hw:0,0` and `hw:1,0` can swap on any reboot,
+and the encoder then records the wrong input without reporting an error. Use the
+card id instead:
+
+```bash
+cat /proc/asound/cards      # e.g. 0 [Rx] = the USB receiver, 1 [Generic] = onboard
+```
+
+```
+ALSA_DEVICE=hw:Rx,0
+```
+
+See [card index changed after a reboot](./troubleshooting.md#the-card-index-changed-after-a-reboot)
+for how to verify which device is actually being read.
+
 ## 5. Wire it up and set levels
 
 Cable from the Cast receiver's line-out to the **light blue Line In** on the

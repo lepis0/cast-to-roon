@@ -48,6 +48,12 @@ Ethernet port — either accept WiFi or pick a Pi with a jack.
    `/boot/firmware/config.txt` (`dtparam=audio=off`) if you want the USB card to
    become `hw:0,0` and stay there.
 
+   Better still, leave the index out of it and use the card id, which does not
+   move: `cat /proc/asound/card1/id` prints something like `Device`, so
+   `ALSA_DEVICE=hw:Device,0`. Indexes are assigned in probe order and a reshuffle
+   silently points the encoder at the wrong input — see [card index changed after
+   a reboot](./troubleshooting.md#the-card-index-changed-after-a-reboot).
+
 4. Run the container:
 
    ```bash

@@ -78,6 +78,13 @@ docker run -d \
 `ALSA_DEVICE` is the part you have to get right — see
 [`docs/unraid.md`](./docs/unraid.md), or run `./scripts/find-line-in.sh -m` to
 list capture devices and measure which one actually carries signal.
+
+> **If the machine has more than one capture card, address it by name, not by
+> number:** `ALSA_DEVICE=hw:Rx,0` rather than `hw:1,0`, where `Rx` is the id
+> from `cat /proc/asound/card1/id`. Card indexes are assigned in probe order and
+> can swap on any reboot, and when they do the encoder records the wrong input
+> *without erroring* — Icecast still reports a healthy mount. See
+> [card index changed after a reboot](./docs/troubleshooting.md#the-card-index-changed-after-a-reboot).
 [`docker-compose.yml`](./docker-compose.yml) has the same thing in compose form,
 and [`unraid/cast-to-roon.xml`](./unraid/cast-to-roon.xml) is an Unraid
 container template.
@@ -92,7 +99,7 @@ you only need to set the two passwords and `ALSA_DEVICE`.
 | Variable               | Default        | Purpose                                                     |
 | ---------------------- | -------------- | ----------------------------------------------------------- |
 | `SOURCE_MODE`          | `alsa`         | `alsa` (capture), `tone` (test signal), `file` (loop a file) |
-| `ALSA_DEVICE`          | `hw:0,0`       | ALSA capture device, `alsa` mode only                        |
+| `ALSA_DEVICE`          | `hw:0,0`       | ALSA capture device, `alsa` mode only. Prefer a card id (`hw:Rx,0`) over an index |
 | `SAMPLE_RATE`          | `48000`        | Capture sample rate in Hz, or `auto` to measure it (see below) |
 | `SAMPLE_FORMAT`        | `s16`          | Capture sample format: `s16` or `s32`                        |
 | `CHANNELS`             | `2`            | Capture channel count                                        |
