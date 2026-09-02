@@ -29,7 +29,7 @@ jobs:
           shellcheck docker/*.sh scripts/*.sh
 
       - name: Hadolint
-        uses: hadolint/hadolint-action@v3.4.0
+        uses: hadolint/hadolint-action@v3.5.0
         with:
           dockerfile: Dockerfile
 
